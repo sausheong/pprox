@@ -130,18 +130,20 @@ func (r *Router) ExecuteWriteWithParams(ctx context.Context, sql string, params 
 	}
 
 	// Begin transactions on successful writers
+	writersWithTx := make([]writerConn, 0, len(successfulWriters))
 	for i := range successfulWriters {
 		tx, err := successfulWriters[i].conn.Begin(ctx)
 		if err != nil {
 			log.Printf("Warning: failed to begin transaction on writer %s: %v", successfulWriters[i].dsn, err)
-			// Close this connection and remove from successful list
+			// Close this connection
 			successfulWriters[i].conn.Close(ctx)
 			failedWriters = append(failedWriters, successfulWriters[i].dsn)
-			successfulWriters = append(successfulWriters[:i], successfulWriters[i+1:]...)
 			continue
 		}
 		successfulWriters[i].tx = tx
+		writersWithTx = append(writersWithTx, successfulWriters[i])
 	}
+	successfulWriters = writersWithTx
 
 	// Check again if we have any writers left
 	if len(successfulWriters) == 0 {
