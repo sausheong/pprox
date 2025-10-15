@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"log"
 	"strings"
 
 	"github.com/jackc/pgx/v5"
@@ -84,70 +85,96 @@ func (r *Router) ExecuteWrite(ctx context.Context, sql string) error {
 }
 
 // ExecuteWriteWithParams executes a write query with parameters on all writer backends in a transaction
+// If a writer fails or times out, it is skipped and the operation continues with remaining writers
 func (r *Router) ExecuteWriteWithParams(ctx context.Context, sql string, params ...interface{}) error {
 	if len(r.config.WriterDSNs) == 0 {
 		return fmt.Errorf("no writer backends configured")
 	}
 
-	// Connect to all writers
-	conns := make([]*pgx.Conn, 0, len(r.config.WriterDSNs))
-	txs := make([]pgx.Tx, 0, len(r.config.WriterDSNs))
+	type writerConn struct {
+		conn *pgx.Conn
+		tx   pgx.Tx
+		dsn  string
+	}
 
-	// Cleanup function
-	cleanup := func() {
-		for i := range txs {
-			if txs[i] != nil {
-				txs[i].Rollback(ctx)
+	var successfulWriters []writerConn
+	var failedWriters []string
+
+	// Cleanup function for successful writers
+	cleanup := func(rollback bool) {
+		for _, w := range successfulWriters {
+			if rollback && w.tx != nil {
+				w.tx.Rollback(ctx)
 			}
-		}
-		for i := range conns {
-			if conns[i] != nil {
-				conns[i].Close(ctx)
+			if w.conn != nil {
+				w.conn.Close(ctx)
 			}
 		}
 	}
 
-	// Connect to all writers
+	// Try to connect to each writer
 	for _, dsn := range r.config.WriterDSNs {
 		conn, err := r.connectToBackend(ctx, dsn)
 		if err != nil {
-			cleanup()
-			return fmt.Errorf("failed to connect to writer %s: %w", dsn, err)
+			// Log and skip this writer
+			log.Printf("Warning: failed to connect to writer %s: %v", dsn, err)
+			failedWriters = append(failedWriters, dsn)
+			continue
 		}
-		conns = append(conns, conn)
+		successfulWriters = append(successfulWriters, writerConn{conn: conn, dsn: dsn})
 	}
 
-	// Begin transactions on all writers
-	for i, conn := range conns {
-		tx, err := conn.Begin(ctx)
-		if err != nil {
-			cleanup()
-			return fmt.Errorf("failed to begin transaction on writer %d: %w", i, err)
-		}
-		txs = append(txs, tx)
+	// Check if at least one writer is available
+	if len(successfulWriters) == 0 {
+		return fmt.Errorf("no writer backends available (all %d writers failed)", len(r.config.WriterDSNs))
 	}
 
-	// Execute query on all writers
-	for i, tx := range txs {
-		_, err := tx.Exec(ctx, sql, params...)
+	// Begin transactions on successful writers
+	for i := range successfulWriters {
+		tx, err := successfulWriters[i].conn.Begin(ctx)
 		if err != nil {
-			cleanup()
-			return fmt.Errorf("failed to execute on writer %d: %w", i, err)
+			log.Printf("Warning: failed to begin transaction on writer %s: %v", successfulWriters[i].dsn, err)
+			// Close this connection and remove from successful list
+			successfulWriters[i].conn.Close(ctx)
+			failedWriters = append(failedWriters, successfulWriters[i].dsn)
+			successfulWriters = append(successfulWriters[:i], successfulWriters[i+1:]...)
+			continue
+		}
+		successfulWriters[i].tx = tx
+	}
+
+	// Check again if we have any writers left
+	if len(successfulWriters) == 0 {
+		return fmt.Errorf("no writer backends available (failed to begin transactions)")
+	}
+
+	// Execute query on all successful writers
+	for i := range successfulWriters {
+		_, err := successfulWriters[i].tx.Exec(ctx, sql, params...)
+		if err != nil {
+			log.Printf("Warning: failed to execute on writer %s: %v", successfulWriters[i].dsn, err)
+			cleanup(true)
+			return fmt.Errorf("failed to execute on writer %s: %w", successfulWriters[i].dsn, err)
 		}
 	}
 
 	// Commit all transactions
-	for i, tx := range txs {
-		err := tx.Commit(ctx)
+	for i := range successfulWriters {
+		err := successfulWriters[i].tx.Commit(ctx)
 		if err != nil {
-			cleanup()
-			return fmt.Errorf("failed to commit on writer %d: %w", i, err)
+			log.Printf("Warning: failed to commit on writer %s: %v", successfulWriters[i].dsn, err)
+			cleanup(true)
+			return fmt.Errorf("failed to commit on writer %s: %w", successfulWriters[i].dsn, err)
 		}
 	}
 
 	// Close all connections
-	for _, conn := range conns {
-		conn.Close(ctx)
+	cleanup(false)
+
+	// Log summary
+	if len(failedWriters) > 0 {
+		log.Printf("Write completed on %d/%d writers (failed: %v)", 
+			len(successfulWriters), len(r.config.WriterDSNs), failedWriters)
 	}
 
 	return nil
