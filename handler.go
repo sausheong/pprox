@@ -7,7 +7,6 @@ import (
 	"io"
 	"log"
 	"net"
-	"time"
 
 	"github.com/jackc/pgproto3/v2"
 )
@@ -177,8 +176,7 @@ func (h *ClientHandler) handleStartup() error {
 
 // handleQuery processes a query message
 func (h *ClientHandler) handleQuery(sql string) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx := context.Background()
 	queryType := ClassifyQuery(sql)
 
 	if queryType == QueryTypeRead {
@@ -374,8 +372,7 @@ func (h *ClientHandler) handleBind(msg *pgproto3.Bind) {
 
 // handleExecute handles Execute message to run a portal
 func (h *ClientHandler) handleExecute(msg *pgproto3.Execute) {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
+	ctx := context.Background()
 
 	// Get the portal
 	portal, exists := h.portals[msg.Portal]
