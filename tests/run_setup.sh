@@ -1,15 +1,10 @@
 #!/bin/bash
 
-# Script to run setup.sql on all databases
+# Script to run setup.sql through pprox
 # Creates the users table and inserts initial test data
 #
-# **IMPORTANT: This script must be run on the PPROX VM**
-# The databases are only accessible from the PPROX VM IP due to firewall rules
-#
-# To run this script:
-# 1. Transfer to VM: gcloud compute scp tests/run_setup.sh pprox-server:~/tests/ --zone=$GCP_ZONE
-# 2. SSH to VM: gcloud compute ssh pprox-server --zone=$GCP_ZONE
-# 3. Run: chmod +x tests/run_setup.sh && ./tests/run_setup.sh
+# **Run this on your LOCAL MACHINE**
+# It connects to pprox running on the PPROX VM
 
 # Load environment variables
 source ~/pprox-setup.env
@@ -28,16 +23,16 @@ echo "Running Database Setup via pprox"
 echo "=========================================="
 echo ""
 echo "This will create the users table and insert 5 test rows"
-echo "through pprox proxy server (localhost:54329)"
+echo "through pprox proxy server ($PPROX_VM_IP:54329)"
 echo ""
 
 # Run setup through pprox
 echo "Setting up databases through pprox..."
-echo "   Proxy: localhost:54329"
+echo "   Proxy: $PPROX_VM_IP:54329"
 echo "------------------------------------------"
 export PGPASSWORD="$APP_USER_PASSWORD"
 export PGSSLMODE=require
-psql -h localhost -p 54329 -U app_user -d postgres -f "$SQL_FILE"
+psql -h $PPROX_VM_IP -p 54329 -U app_user -d postgres -f "$SQL_FILE"
 STATUS=$?
 echo ""
 
