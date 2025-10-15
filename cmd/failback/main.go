@@ -245,8 +245,18 @@ func loadConfig() (*FailbackConfig, error) {
 				config.PrimaryWriter = extractHost(primaryDSN)
 				config.PrimaryPassword = extractPassword(primaryDSN)
 			} else {
-				// Extract primary database details
-				if config.PrimaryWriter == "" {
+				// Single DSN - could be failover mode (backup only) or normal mode (primary only)
+				// In failover mode, the single DSN is the backup database
+				// We need to extract backup details if not already set
+				if config.BackupEndpoint == "" && strings.Contains(key, "PG_WRITERS_CSV") {
+					// This is likely failover mode - save as backup database
+					config.BackupEndpoint = extractHost(value)
+					config.BackupUsername = extractUsername(value)
+					config.BackupPassword = extractPassword(value)
+					config.BackupDatabase = extractDatabase(value)
+				}
+				// Also try to extract as primary (for normal mode or for reader)
+				if config.PrimaryWriter == "" && !strings.Contains(key, "READER") {
 					config.PrimaryWriter = extractHost(value)
 					config.PrimaryPassword = extractPassword(value)
 				}
