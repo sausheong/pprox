@@ -9,6 +9,7 @@ FAILBACK_CMD=pprox-failback
 VERIFY_CMD=pprox-verify-sync
 HEALTH_CMD=pprox-health-check
 ENCRYPT_CMD=pprox-encrypt-credentials
+SYNC_CMD=pprox-sync-databases
 
 INSTALL_PATH=/usr/local/bin
 CONFIG_PATH=/etc/pprox
@@ -33,6 +34,7 @@ build:
 	$(GOBUILD) -o $(VERIFY_CMD) cmd/verify-sync/main.go
 	$(GOBUILD) -o $(HEALTH_CMD) cmd/health-check/main.go
 	$(GOBUILD) -o $(ENCRYPT_CMD) cmd/encrypt-credentials/main.go
+	$(GOBUILD) -o $(SYNC_CMD) cmd/sync-databases/main.go
 	@echo "✅ Build complete!"
 
 ## install: Install binaries to system
@@ -44,12 +46,14 @@ install: build
 	sudo cp $(VERIFY_CMD) $(INSTALL_PATH)/
 	sudo cp $(HEALTH_CMD) $(INSTALL_PATH)/
 	sudo cp $(ENCRYPT_CMD) $(INSTALL_PATH)/
+	sudo cp $(SYNC_CMD) $(INSTALL_PATH)/
 	sudo chmod +x $(INSTALL_PATH)/$(BINARY_NAME)
 	sudo chmod +x $(INSTALL_PATH)/$(FAILOVER_CMD)
 	sudo chmod +x $(INSTALL_PATH)/$(FAILBACK_CMD)
 	sudo chmod +x $(INSTALL_PATH)/$(VERIFY_CMD)
 	sudo chmod +x $(INSTALL_PATH)/$(HEALTH_CMD)
 	sudo chmod +x $(INSTALL_PATH)/$(ENCRYPT_CMD)
+	sudo chmod +x $(INSTALL_PATH)/$(SYNC_CMD)
 	@echo "✅ Installation complete!"
 	@echo ""
 	@echo "Available commands:"
@@ -57,6 +61,7 @@ install: build
 	@echo "  $(FAILOVER_CMD)             - Failover to RDS"
 	@echo "  $(FAILBACK_CMD)             - Failback to Cloud SQL"
 	@echo "  $(VERIFY_CMD)               - Verify data synchronization"
+	@echo "  $(SYNC_CMD)                 - Sync databases"
 	@echo "  $(HEALTH_CMD)               - Health check"
 	@echo "  $(ENCRYPT_CMD)              - Encrypt credentials"
 
@@ -120,6 +125,7 @@ clean:
 	rm -f $(VERIFY_CMD)
 	rm -f $(HEALTH_CMD)
 	rm -f $(ENCRYPT_CMD)
+	rm -f $(SYNC_CMD)
 	@echo "✅ Clean complete"
 
 ## test: Run tests
@@ -140,6 +146,7 @@ uninstall:
 	sudo rm -f $(INSTALL_PATH)/$(VERIFY_CMD)
 	sudo rm -f $(INSTALL_PATH)/$(HEALTH_CMD)
 	sudo rm -f $(INSTALL_PATH)/$(ENCRYPT_CMD)
+	sudo rm -f $(INSTALL_PATH)/$(SYNC_CMD)
 	@echo "✅ Uninstall complete"
 
 ## help: Show this help message
