@@ -144,6 +144,10 @@ func (h *ClientHandler) handleStartup() error {
 	}
 
 	switch msg := startupMsg.(type) {
+	case *pgproto3.CancelRequest:
+		// Client is canceling a query - just close the connection silently
+		log.Printf("Received cancel request from %s", h.conn.RemoteAddr())
+		return fmt.Errorf("cancel request received")
 	case *pgproto3.StartupMessage:
 		// Extract username
 		username := ""
