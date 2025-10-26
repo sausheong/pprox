@@ -3,8 +3,8 @@
 # Script to run setup.sql through pprox
 # Creates the users table and inserts initial test data
 #
-# **Run this on your LOCAL MACHINE**
-# It connects to pprox running on the PPROX VM
+# Can be run on LOCAL MACHINE or PPROX VM
+# Automatically detects location and connects appropriately
 
 # Load environment variables
 source ~/pprox-setup.env
@@ -18,20 +18,26 @@ if [ ! -f "$SQL_FILE" ]; then
     exit 1
 fi
 
+# Detect if running on PPROX VM or local machine
+PPROX_HOST="$PPROX_VM_IP"
+if hostname | grep -q "pprox" || [ "$(hostname)" = "pprox-server" ]; then
+    PPROX_HOST="localhost"
+fi
+
 echo "=========================================="
 echo "Running Database Setup via pprox"
 echo "=========================================="
 echo ""
 echo "This will create the users table and insert 5 test rows"
-echo "through pprox proxy server ($PPROX_VM_IP:54329)"
+echo "through pprox proxy server ($PPROX_HOST:54329)"
 echo ""
 
 # Run setup through pprox
 echo "Setting up databases through pprox..."
-echo "   Proxy: $PPROX_VM_IP:54329"
+echo "   Proxy: $PPROX_HOST:54329"
 echo "------------------------------------------"
 export PGPASSWORD="$APP_USER_PASSWORD"
-psql --no-psqlrc -q "postgresql://app_user@$PPROX_VM_IP:54329/postgres?sslmode=require" < "$SQL_FILE"
+psql --no-psqlrc -q "postgresql://app_user@$PPROX_HOST:54329/postgres?sslmode=require" < "$SQL_FILE"
 STATUS=$?
 echo ""
 
