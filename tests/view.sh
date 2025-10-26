@@ -19,16 +19,27 @@ echo "Testing Direct Database Connections"
 echo "=========================================="
 echo ""
 
+# Detect timeout command (gtimeout on macOS, timeout on Linux)
+TIMEOUT_CMD="timeout"
+if ! command -v timeout &> /dev/null; then
+    if command -v gtimeout &> /dev/null; then
+        TIMEOUT_CMD="gtimeout"
+    else
+        TIMEOUT_CMD=""
+    fi
+fi
+
 # Test RDS Writer
 echo "1. Testing RDS Writer (pprox-writer-rds)"
 echo "   Host: $RDS_ENDPOINT"
 echo "------------------------------------------"
 export PGPASSWORD="$APP_USER_PASSWORD"
-export PGCONNECT_TIMEOUT=5
-timeout 5 psql -h "$RDS_ENDPOINT" -p 5432 -U app_user -d postgres -c "SELECT * FROM users ORDER BY id;" 2>&1
-RDS_STATUS=$?
-if [ $RDS_STATUS -eq 124 ]; then
-    echo "⏱️  Connection timed out after 5 seconds"
+if [ -n "$TIMEOUT_CMD" ]; then
+    $TIMEOUT_CMD 10 psql "postgresql://app_user@$RDS_ENDPOINT:5432/postgres?sslmode=require&connect_timeout=5" -c "SELECT * FROM users ORDER BY id;" 2>&1
+    RDS_STATUS=$?
+else
+    psql "postgresql://app_user@$RDS_ENDPOINT:5432/postgres?sslmode=require&connect_timeout=5" -c "SELECT * FROM users ORDER BY id;" 2>&1
+    RDS_STATUS=$?
 fi
 echo ""
 
@@ -36,13 +47,13 @@ echo ""
 echo "2. Testing Cloud SQL Writer (pprox-writer-primary)"
 echo "   Host: $CLOUDSQL_WRITER_HOST"
 echo "------------------------------------------"
-export PGSSLMODE=require
 export PGPASSWORD="$APP_USER_PASSWORD"
-export PGCONNECT_TIMEOUT=5
-timeout 5 psql -h "$CLOUDSQL_WRITER_HOST" -p 5432 -U app_user -d postgres -c "SELECT * FROM users ORDER BY id;" 2>&1
-CLOUDSQL_WRITER_STATUS=$?
-if [ $CLOUDSQL_WRITER_STATUS -eq 124 ]; then
-    echo "⏱️  Connection timed out after 5 seconds"
+if [ -n "$TIMEOUT_CMD" ]; then
+    $TIMEOUT_CMD 10 psql "postgresql://app_user@$CLOUDSQL_WRITER_HOST:5432/postgres?sslmode=require&connect_timeout=5" -c "SELECT * FROM users ORDER BY id;" 2>&1
+    CLOUDSQL_WRITER_STATUS=$?
+else
+    psql "postgresql://app_user@$CLOUDSQL_WRITER_HOST:5432/postgres?sslmode=require&connect_timeout=5" -c "SELECT * FROM users ORDER BY id;" 2>&1
+    CLOUDSQL_WRITER_STATUS=$?
 fi
 echo ""
 
@@ -50,13 +61,13 @@ echo ""
 echo "3. Testing Cloud SQL Reader (pprox-reader-replica)"
 echo "   Host: $CLOUDSQL_READER_HOST"
 echo "------------------------------------------"
-export PGSSLMODE=require
 export PGPASSWORD="$APP_USER_PASSWORD"
-export PGCONNECT_TIMEOUT=5
-timeout 5 psql -h "$CLOUDSQL_READER_HOST" -p 5432 -U app_user -d postgres -c "SELECT * FROM users ORDER BY id;" 2>&1
-CLOUDSQL_READER_STATUS=$?
-if [ $CLOUDSQL_READER_STATUS -eq 124 ]; then
-    echo "⏱️  Connection timed out after 5 seconds"
+if [ -n "$TIMEOUT_CMD" ]; then
+    $TIMEOUT_CMD 10 psql "postgresql://app_user@$CLOUDSQL_READER_HOST:5432/postgres?sslmode=require&connect_timeout=5" -c "SELECT * FROM users ORDER BY id;" 2>&1
+    CLOUDSQL_READER_STATUS=$?
+else
+    psql "postgresql://app_user@$CLOUDSQL_READER_HOST:5432/postgres?sslmode=require&connect_timeout=5" -c "SELECT * FROM users ORDER BY id;" 2>&1
+    CLOUDSQL_READER_STATUS=$?
 fi
 echo ""
 

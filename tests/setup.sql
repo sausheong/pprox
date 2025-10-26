@@ -15,6 +15,3 @@ INSERT INTO users (username, email, full_name, is_active) VALUES
     ('charlie', 'charlie@example.com', 'Charlie Brown', false),
     ('diana', 'diana@example.com', 'Diana Prince', true),
     ('eve', 'eve@example.com', 'Eve Martinez', true);
-
--- Display the inserted data
-SELECT * FROM users ORDER BY id;

@@ -12,7 +12,3 @@ INSERT INTO users (username, email, full_name, is_active) VALUES
     ('maria', 'maria@example.com', 'Maria Rodriguez', true),
     ('nathan', 'nathan@example.com', 'Nathan White', true),
     ('olivia', 'olivia@example.com', 'Olivia Harris', true);
-
--- Display all users to verify the insert
-SELECT COUNT(*) as total_users FROM users;
-SELECT * FROM users ORDER BY id;

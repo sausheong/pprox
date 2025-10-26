@@ -31,8 +31,7 @@ echo "Adding rows through pprox..."
 echo "   Proxy: $PPROX_VM_IP:54329"
 echo "------------------------------------------"
 export PGPASSWORD="$APP_USER_PASSWORD"
-export PGSSLMODE=require
-psql -h $PPROX_VM_IP -p 54329 -U app_user -d postgres -f "$SQL_FILE"
+psql --no-psqlrc -q "postgresql://app_user@$PPROX_VM_IP:54329/postgres?sslmode=require" < "$SQL_FILE"
 STATUS=$?
 echo ""
 
